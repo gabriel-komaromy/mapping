@@ -3,10 +3,18 @@ import math
 
 
 class World(object):
-    def __init__(self, boundaries):
-        # boundaries are an x length and a y length
-        # position indexing starts at 0 in the bottom left
-        self.boundaries = boundaries
+    def __init__(self, dimensions):
+        self.dimensions = dimensions
+        bottom_left = Point(0, 0)
+        top_left = Point(0, dimensions[1])
+        top_right = Point(dimensions[0], dimensions[1])
+        bottom_right = Point(dimensions[0], 0)
+        self.boundaries = {
+            'left': Wall((bottom_left, top_left)),
+            'top': Wall((top_left, top_right)),
+            'right': Wall((top_right, bottom_right)),
+            'bottom': Wall((bottom_right, bottom_left)),
+            }
         self.walls = Set()
 
     def add_wall(self, wall):
@@ -23,24 +31,23 @@ class World(object):
         assert self.robot_location is not None
         assert self.in_boundaries(destination)
         trajectory = Trajectory((self.robot_location, destination))
-        intersections = Set()
-        for wall in self.walls:
-            if wall.intersects(trajectory):
-                intersections.add(wall.line_intersection(trajectory))
+        intersections = self.intersections(self.walls, trajectory)
         if len(intersections) == 0:
             self.robot_location = destination
         else:
             # if the movement would run into a wall, end the movement a short distance away from the wall
             collision_distance = 0.1
-            closest_intersection = min(intersections, key=lambda point: self.robot_location.distance(point))
+            closest_intersection = self.closest_intersection(intersections)
             try:
                 movement_direction = trajectory.slope()
                 correction = -1 * movement_direction
                 if correction == 0:
                     # horizontal line so slope is 0
-                    direction = self.slopeless_movement_direction(trajectory.endpoints[1].x, trajectory.endpoints[0].x)
+                    direction = self.single_coordinate_direction(trajectory.endpoints[1].x, trajectory.endpoints[0].x)
                     x_offset = collision_distance * direction
+
                     y_offset = 0
+
                 else:
                     x_offset = collision_distance / correction
                     y_offset = collision_distance * correction
@@ -48,15 +55,15 @@ class World(object):
                 # vertical line so slope is undefined
                 x_offset = 0
 
-                direction = self.slopeless_movement_direction(trajectory.endpoints[1].y, trajectory.endpoints[0].y)
-
+                direction = self.single_coordinate_direction(trajectory.endpoints[1].y, trajectory.endpoints[0].y)
                 y_offset = collision_distance * direction
+
             new_location = Point(closest_intersection.x + x_offset, closest_intersection.y + y_offset)
             self.robot_location = new_location
-        print self.robot_location
+        return self.robot_location
 
     """Handles cases of horizontal/vertical movement collisions"""
-    def slopeless_movement_direction(self, destination, origin):
+    def single_coordinate_direction(self, destination, origin):
         if destination > origin:
             return -1
         else:
@@ -65,7 +72,25 @@ class World(object):
     def in_boundaries(self, location):
         x = location.x
         y = location.y
-        return 0 <= x <= self.boundaries[0] and 0 <= y <= self.boundaries[1]
+        return 0 <= x <= self.dimensions[0] and 0 <= y <= self.dimensions[1]
+
+    def intersections(self, walls, trajectory):
+        intersections = Set()
+        for wall in walls:
+            if wall.intersects(trajectory):
+                intersections.add(wall.line_intersection(trajectory))
+        return intersections
+
+    def distance_in_direction(self, direction):
+        traj = Trajectory(self.robot_location, Point(direction.x_component * self.dimensions[0], direction.y_component * self.dimensions[1]))
+        intersections = self.intersections(self.walls, traj)
+        if len(intersections) == 0:
+            intersections = self.intersections(self.boundaries.values(), traj)
+
+        return self.robot_location.distance(self.closest_intersection(intersections))
+
+    def closest_intersection(self, intersections):
+        return min(intersections, key=lambda point: self.robot_location.distance(point))
 
         
 class LineSegment(object):
@@ -129,3 +154,9 @@ class Point(object):
 
     def __str__(self):
         return "(" + str(self.x) + ", " + str(self.y) + ")"
+
+
+class Direction(object):
+    def __init__(self, components):
+        self.x_component = components[0]
+        self.y_component = components[1]
