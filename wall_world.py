@@ -34,6 +34,20 @@ class World(object):
             }
         self.walls = Set()
         self.agent = SingleAgentID
+        self.read_walls_from_file('wall_list.txt')
+
+    def read_walls_from_file(self, file_name):
+        with open(file_name, 'r') as f:
+            walls_list = f.readlines()
+
+        split_coordinates = [wall.split(',') for wall in walls_list]
+        wall_coordinates = []
+        for wall in split_coordinates:
+            wall_coordinates.append([int(coord.strip()) for coord in wall])
+        for wall in wall_coordinates:
+            start = Point(wall[0], wall[1])
+            end = Point(wall[2], wall[3])
+            self.add_wall(Wall((start, end)))
 
     def add_wall(self, wall):
         # This lets walls intersect but I'm ok with that
