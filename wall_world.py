@@ -1,10 +1,27 @@
 from sets import Set
 import math
 
+from actions import ComponentName
+from observations import NumericFeatureValue
+from observations import Observation
+from agents import SingleAgentID
+
 
 class World(object):
-    def __init__(self, dimensions):
+    directions = {
+        'north': Direction((0, 1)),
+        'east': Direction((1, 0)),
+        'south': Direction((0, -1)),
+        'west': Direction((-1, 0)),
+        }
+    component_names = {
+        'x': ComponentName('x'),
+        'y': ComponentName('y'),
+        }
+
+    def __init__(self, dimensions, feature_names):
         self.dimensions = dimensions
+        self.feature_names = feature_names
         bottom_left = Point(0, 0)
         top_left = Point(0, dimensions[1])
         top_right = Point(dimensions[0], dimensions[1])
@@ -16,6 +33,7 @@ class World(object):
             'bottom': Wall((bottom_right, bottom_left)),
             }
         self.walls = Set()
+        self.agent = SingleAgentID
 
     def add_wall(self, wall):
         # This lets walls intersect but I'm ok with that
@@ -26,6 +44,24 @@ class World(object):
     def add_robot(self, location):
         assert self.in_boundaries(location)
         self.robot_location = location
+
+    def make_observation(self):
+        observation = Observation()
+        observation.add_feature(self.feature_names['x'], NumericFeatureComponent(self.robot_location.x))
+        observation.add_feature(self.feature_names['y'], NumericFeatureComponent(self.robot_location.y))
+        for dir in self.directions.keys():
+            observation.add_feature(self.feature_names[dir], NumericFeatureComponent(self.distance_in_direction(self.directions[dir])))
+        return observation
+
+    def initial_state(self):
+        return self.make_observation()
+
+    def update(self, action_map, term_signal):
+        action = action_map[self.agent]
+        new_x = action[self.component_names['x']]
+        new_y = action[self.component_names['y']]
+        self.robot_location = self.move_robot(Point(new_x, new_y))
+        return self.make_observation()
 
     def move_robot(self, destination):
         assert self.robot_location is not None
@@ -59,8 +95,7 @@ class World(object):
                 y_offset = collision_distance * direction
 
             new_location = Point(closest_intersection.x + x_offset, closest_intersection.y + y_offset)
-            self.robot_location = new_location
-        return self.robot_location
+        return new_location
 
     """Handles cases of horizontal/vertical movement collisions"""
     def single_coordinate_direction(self, destination, origin):
