@@ -84,7 +84,7 @@ class World(object):
         trajectory = Trajectory((self.robot_location, destination))
         intersections = self.intersections(self.walls, trajectory)
         if len(intersections) == 0:
-            self.robot_location = destination
+            new_location = destination
         else:
             # if the movement would run into a wall, end the movement a short distance away from the wall
             collision_distance = 0.1
@@ -110,6 +110,7 @@ class World(object):
                 y_offset = collision_distance * direction
 
             new_location = Point(closest_intersection.x + x_offset, closest_intersection.y + y_offset)
+        print new_location
         return new_location
 
     """Handles cases of horizontal/vertical movement collisions"""

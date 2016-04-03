@@ -50,3 +50,6 @@ class MappingAgent(Agent):
         action.add_component(self.component_names['y'], y_component)
         action_map.add_action(self.agent_id, action)
         return action_map
+
+    def next_movement(self):
+        return (0.5, 7)
