@@ -19,7 +19,7 @@ class World(object):
         'y': ComponentName('y'),
         }
 
-    def __init__(self, dimensions, feature_names):
+    def __init__(self, dimensions, feature_names, robot_position):
         self.dimensions = dimensions
         self.feature_names = feature_names
         bottom_left = Point(0, 0)
@@ -32,6 +32,7 @@ class World(object):
             'right': Wall((top_right, bottom_right)),
             'bottom': Wall((bottom_right, bottom_left)),
             }
+        self.add_robot(Position(robot_position[0], robot_position[1]))
         self.walls = Set()
         self.agent = SingleAgentID
         self.read_walls_from_file('wall_list.txt')

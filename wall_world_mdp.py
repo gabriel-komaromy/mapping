@@ -28,9 +28,9 @@ class WallWorldMDP(MarkovDecisionProcess):
         'west': FeatureName('west'),
         }
 
-    def __init__(self):
+    def __init__(self, robot_position):
         self.dimensions = (10, 10)
-        self.world = World(self.dimensions, self.feature_names)
+        self.world = World(self.dimensions, self.feature_names, robot_position)
         self.reward = Reward(None)
         self.termination_signal = EpisodeTerminationSignal(False)
         self.agent = SingleAgentID()
