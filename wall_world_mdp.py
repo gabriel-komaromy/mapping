@@ -29,7 +29,7 @@ class WallWorldMDP(MarkovDecisionProcess):
         }
 
     def __init__(self, robot_position):
-        self.dimensions = (10, 10)
+        self.dimensions = (12, 12)
         self.world = World(self.dimensions, self.feature_names, robot_position)
         self.reward = Reward(None)
         self.termination_signal = EpisodeTerminationSignal(False)

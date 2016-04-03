@@ -97,19 +97,18 @@ class World(object):
     def __init__(self, dimensions, feature_names, robot_position):
         self.dimensions = dimensions
         self.feature_names = feature_names
-        bottom_left = Point(0, 0)
-        top_left = Point(0, dimensions[1])
-        top_right = Point(dimensions[0], dimensions[1])
-        bottom_right = Point(dimensions[0], 0)
-        self.boundaries = {
-            'left': Wall((bottom_left, top_left)),
-            'top': Wall((top_left, top_right)),
-            'right': Wall((top_right, bottom_right)),
-            'bottom': Wall((bottom_right, bottom_left)),
-            }
         self.add_robot(Point(robot_position[0], robot_position[1]))
         self.walls = Set()
         self.agent = SingleAgentID()
+        bottom_left = Point(1, 1)
+        top_left = Point(1, dimensions[1] - 1)
+        top_right = Point(dimensions[0] - 1, dimensions[1] - 1)
+        bottom_right = Point(dimensions[0] - 1, 1)
+        self.add_wall(Wall((bottom_left, top_left)))
+        self.add_wall(Wall((top_left, top_right)))
+        self.add_wall(Wall((top_right, bottom_right)))
+        self.add_wall(Wall((bottom_right, bottom_left)))
+
         self.read_walls_from_file('wall_list.txt')
 
     def read_walls_from_file(self, file_name):
@@ -119,7 +118,7 @@ class World(object):
         split_coordinates = [wall.split(',') for wall in walls_list]
         wall_coordinates = []
         for wall in split_coordinates:
-            wall_coordinates.append([float(coord.strip()) for coord in wall])
+            wall_coordinates.append([float(coord.strip()) + 1 for coord in wall])
         for wall in wall_coordinates:
             start = Point(wall[0], wall[1])
             end = Point(wall[2], wall[3])
@@ -209,8 +208,7 @@ class World(object):
     def distance_in_direction(self, direction):
         traj = Trajectory((self.robot_location, Point(direction.x_component * self.dimensions[0] * 2, direction.y_component * self.dimensions[1] * 2)))
         intersections = self.intersections(self.walls, traj)
-        if len(intersections) == 0:
-            intersections = self.intersections(self.boundaries.values(), traj)
+        assert len(intersections) > 0
 
         return self.robot_location.distance(self.closest_intersection(intersections))
 
