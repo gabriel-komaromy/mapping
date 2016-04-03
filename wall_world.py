@@ -7,143 +7,6 @@ from observations import Observation
 from agents import SingleAgentID
 
 
-class World(object):
-    directions = {
-        'north': Direction((0, 1)),
-        'east': Direction((1, 0)),
-        'south': Direction((0, -1)),
-        'west': Direction((-1, 0)),
-        }
-    component_names = {
-        'x': ComponentName('x'),
-        'y': ComponentName('y'),
-        }
-
-    def __init__(self, dimensions, feature_names, robot_position):
-        self.dimensions = dimensions
-        self.feature_names = feature_names
-        bottom_left = Point(0, 0)
-        top_left = Point(0, dimensions[1])
-        top_right = Point(dimensions[0], dimensions[1])
-        bottom_right = Point(dimensions[0], 0)
-        self.boundaries = {
-            'left': Wall((bottom_left, top_left)),
-            'top': Wall((top_left, top_right)),
-            'right': Wall((top_right, bottom_right)),
-            'bottom': Wall((bottom_right, bottom_left)),
-            }
-        self.add_robot(Position(robot_position[0], robot_position[1]))
-        self.walls = Set()
-        self.agent = SingleAgentID
-        self.read_walls_from_file('wall_list.txt')
-
-    def read_walls_from_file(self, file_name):
-        with open(file_name, 'r') as f:
-            walls_list = f.readlines()
-
-        split_coordinates = [wall.split(',') for wall in walls_list]
-        wall_coordinates = []
-        for wall in split_coordinates:
-            wall_coordinates.append([int(coord.strip()) for coord in wall])
-        for wall in wall_coordinates:
-            start = Point(wall[0], wall[1])
-            end = Point(wall[2], wall[3])
-            self.add_wall(Wall((start, end)))
-
-    def add_wall(self, wall):
-        # This lets walls intersect but I'm ok with that
-        assert in_boundaries(wall.endpoints[0])
-        assert in_boundaries(wall.endpoints[1])
-        self.walls.add(wall)
-
-    def add_robot(self, location):
-        assert self.in_boundaries(location)
-        self.robot_location = location
-
-    def make_observation(self):
-        observation = Observation()
-        observation.add_feature(self.feature_names['x'], NumericFeatureComponent(self.robot_location.x))
-        observation.add_feature(self.feature_names['y'], NumericFeatureComponent(self.robot_location.y))
-        for dir in self.directions.keys():
-            observation.add_feature(self.feature_names[dir], NumericFeatureComponent(self.distance_in_direction(self.directions[dir])))
-        return observation
-
-    def initial_state(self):
-        return self.make_observation()
-
-    def update(self, action_map, term_signal):
-        action = action_map[self.agent]
-        new_x = action[self.component_names['x']]
-        new_y = action[self.component_names['y']]
-        self.robot_location = self.move_robot(Point(new_x, new_y))
-        return self.make_observation()
-
-    def move_robot(self, destination):
-        assert self.robot_location is not None
-        assert self.in_boundaries(destination)
-        trajectory = Trajectory((self.robot_location, destination))
-        intersections = self.intersections(self.walls, trajectory)
-        if len(intersections) == 0:
-            new_location = destination
-        else:
-            # if the movement would run into a wall, end the movement a short distance away from the wall
-            collision_distance = 0.1
-            closest_intersection = self.closest_intersection(intersections)
-            try:
-                movement_direction = trajectory.slope()
-                correction = -1 * movement_direction
-                if correction == 0:
-                    # horizontal line so slope is 0
-                    direction = self.single_coordinate_direction(trajectory.endpoints[1].x, trajectory.endpoints[0].x)
-                    x_offset = collision_distance * direction
-
-                    y_offset = 0
-
-                else:
-                    x_offset = collision_distance / correction
-                    y_offset = collision_distance * correction
-            except:
-                # vertical line so slope is undefined
-                x_offset = 0
-
-                direction = self.single_coordinate_direction(trajectory.endpoints[1].y, trajectory.endpoints[0].y)
-                y_offset = collision_distance * direction
-
-            new_location = Point(closest_intersection.x + x_offset, closest_intersection.y + y_offset)
-        print new_location
-        return new_location
-
-    """Handles cases of horizontal/vertical movement collisions"""
-    def single_coordinate_direction(self, destination, origin):
-        if destination > origin:
-            return -1
-        else:
-            return 1
-
-    def in_boundaries(self, location):
-        x = location.x
-        y = location.y
-        return 0 <= x <= self.dimensions[0] and 0 <= y <= self.dimensions[1]
-
-    def intersections(self, walls, trajectory):
-        intersections = Set()
-        for wall in walls:
-            if wall.intersects(trajectory):
-                intersections.add(wall.line_intersection(trajectory))
-        return intersections
-
-    def distance_in_direction(self, direction):
-        traj = Trajectory(self.robot_location, Point(direction.x_component * self.dimensions[0], direction.y_component * self.dimensions[1]))
-        intersections = self.intersections(self.walls, traj)
-        if len(intersections) == 0:
-            intersections = self.intersections(self.boundaries.values(), traj)
-
-        return self.robot_location.distance(self.closest_intersection(intersections))
-
-    def closest_intersection(self, intersections):
-        return min(intersections, key=lambda point: self.robot_location.distance(point))
-
-        
 class LineSegment(object):
     def __init__(self, endpoints):
         self.endpoints = endpoints
@@ -185,6 +48,9 @@ class LineSegment(object):
         except:
             raise ValueError()
 
+    def __str__(self):
+        return str(self.endpoints[0]) + ", " + str(self.endpoints[1])
+
 
 class Wall(LineSegment):
     def __init__(self, endpoints):
@@ -211,3 +77,142 @@ class Direction(object):
     def __init__(self, components):
         self.x_component = components[0]
         self.y_component = components[1]
+
+    def __str__(self):
+        return "<" + str(self.x_component) + ", " + str(self.y_component) + ">"
+
+
+class World(object):
+    directions = {
+        'north': Direction((0, 1)),
+        'east': Direction((1, 0)),
+        'south': Direction((0, -1)),
+        'west': Direction((-1, 0)),
+        }
+    component_names = {
+        'x': ComponentName('x'),
+        'y': ComponentName('y'),
+        }
+
+    def __init__(self, dimensions, feature_names, robot_position):
+        self.dimensions = dimensions
+        self.feature_names = feature_names
+        bottom_left = Point(0, 0)
+        top_left = Point(0, dimensions[1])
+        top_right = Point(dimensions[0], dimensions[1])
+        bottom_right = Point(dimensions[0], 0)
+        self.boundaries = {
+            'left': Wall((bottom_left, top_left)),
+            'top': Wall((top_left, top_right)),
+            'right': Wall((top_right, bottom_right)),
+            'bottom': Wall((bottom_right, bottom_left)),
+            }
+        self.add_robot(Point(robot_position[0], robot_position[1]))
+        self.walls = Set()
+        self.agent = SingleAgentID()
+        self.read_walls_from_file('wall_list.txt')
+
+    def read_walls_from_file(self, file_name):
+        with open(file_name, 'r') as f:
+            walls_list = f.readlines()
+
+        split_coordinates = [wall.split(',') for wall in walls_list]
+        wall_coordinates = []
+        for wall in split_coordinates:
+            wall_coordinates.append([float(coord.strip()) for coord in wall])
+        for wall in wall_coordinates:
+            start = Point(wall[0], wall[1])
+            end = Point(wall[2], wall[3])
+            self.add_wall(Wall((start, end)))
+
+    def add_wall(self, wall):
+        # This lets walls intersect but I'm ok with that
+        assert self.in_boundaries(wall.endpoints[0])
+        assert self.in_boundaries(wall.endpoints[1])
+        self.walls.add(wall)
+
+    def add_robot(self, location):
+        assert self.in_boundaries(location)
+        self.robot_location = location
+
+    def make_observation(self):
+        observation = Observation()
+        observation.add_feature(self.feature_names['x'], NumericFeatureValue(self.robot_location.x))
+        observation.add_feature(self.feature_names['y'], NumericFeatureValue(self.robot_location.y))
+        for dir in self.directions.keys():
+            observation.add_feature(self.feature_names[dir], NumericFeatureValue(self.distance_in_direction(self.directions[dir])))
+        return observation
+
+    def initial_state(self):
+        return self.make_observation()
+
+    def update(self, action_map, term_signal):
+        action = action_map.get_action(self.agent)
+        new_x = action.get_component(self.component_names['x']).action_value
+        new_y = action.get_component(self.component_names['y']).action_value
+        self.robot_location = self.move_robot(Point(new_x, new_y))
+        return self.make_observation()
+
+    def move_robot(self, destination):
+        assert self.robot_location is not None
+        assert self.in_boundaries(destination)
+        trajectory = Trajectory((self.robot_location, destination))
+        intersections = self.intersections(self.walls, trajectory)
+        if len(intersections) == 0:
+            new_location = destination
+        else:
+            # if the movement would run into a wall, end the movement a short distance away from the wall
+            collision_distance = 0.1
+            closest_intersection = self.closest_intersection(intersections)
+            try:
+                movement_direction = trajectory.slope()
+                correction = -1 * movement_direction
+                if correction == 0:
+                    # horizontal line so slope is 0
+                    direction = self.single_coordinate_direction(trajectory.endpoints[1].x, trajectory.endpoints[0].x)
+                    x_offset = collision_distance * direction
+
+                    y_offset = 0
+
+                else:
+                    x_offset = collision_distance / correction
+                    y_offset = collision_distance * correction
+            except:
+                # vertical line so slope is undefined
+                x_offset = 0
+
+                direction = self.single_coordinate_direction(trajectory.endpoints[1].y, trajectory.endpoints[0].y)
+                y_offset = collision_distance * direction
+
+            new_location = Point(closest_intersection.x + x_offset, closest_intersection.y + y_offset)
+        return new_location
+
+    """Handles cases of horizontal/vertical movement collisions"""
+    def single_coordinate_direction(self, destination, origin):
+        if destination > origin:
+            return -1
+        else:
+            return 1
+
+    def in_boundaries(self, location):
+        x = location.x
+        y = location.y
+        return 0 <= x <= self.dimensions[0] and 0 <= y <= self.dimensions[1]
+
+    def intersections(self, walls, trajectory):
+        intersections = Set()
+        for wall in walls:
+            if wall.intersects(trajectory):
+                intersections.add(wall.line_intersection(trajectory))
+        return intersections
+
+    def distance_in_direction(self, direction):
+        traj = Trajectory((self.robot_location, Point(direction.x_component * self.dimensions[0] * 2, direction.y_component * self.dimensions[1] * 2)))
+        intersections = self.intersections(self.walls, traj)
+        if len(intersections) == 0:
+            intersections = self.intersections(self.boundaries.values(), traj)
+
+        return self.robot_location.distance(self.closest_intersection(intersections))
+
+    def closest_intersection(self, intersections):
+        return min(intersections, key=lambda point: self.robot_location.distance(point))

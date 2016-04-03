@@ -39,13 +39,13 @@ class WallWorldMDP(MarkovDecisionProcess):
         action_descriptors = AllActionDescriptors()
         x_component_name = ComponentName('x')
         min_x_component = NumericActionComponent(0)
-        max_x_component = self.dimensions[0]
+        max_x_component = NumericActionComponent(self.dimensions[0])
         x_component_descriptor = ContinuousComponentDescriptor(min_x_component, max_x_component)
         action_descriptors.add_descriptor(x_component_name, x_component_descriptor)
 
         y_component_name = ComponentName('y')
         min_y_component = NumericActionComponent(0)
-        max_y_component = self.dimensions[1]
+        max_y_component = NumericActionComponent(self.dimensions[1])
         y_component_descriptor = ContinuousComponentDescriptor(min_y_component, max_y_component)
 
         action_descriptors.add_descriptor(y_component_name, y_component_descriptor)
@@ -76,4 +76,7 @@ class WallWorldMDP(MarkovDecisionProcess):
         return observation_map, self.reward, self.termination_signal
 
     def update(self, action_map, term_signal):
-        return self.world.update(action_map, term_signal)
+        observation_map = ObservationMap()
+        observation = self.world.update(action_map, term_signal)
+        observation_map.add_observation(self.agent, observation)
+        return observation_map, self.reward, self.termination_signal

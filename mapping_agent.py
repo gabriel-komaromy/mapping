@@ -26,7 +26,6 @@ class MappingAgent(Agent):
 
     BINS_PER_DIMENSION = 30
     def __init__(self, environment_spec):
-        print 'initializing agent'
         action_descriptors = environment_spec.action_descriptors
         self.x_component_descriptor = action_descriptors.descriptors[self.component_names['x']]
         self.y_component_descriptor = action_descriptors.descriptors[self.component_names['y']]
@@ -34,13 +33,13 @@ class MappingAgent(Agent):
         self.dimensions = (self.x_component_descriptor.boundaries()[1], self.y_component_descriptor.boundaries()[1])
 
         self.agent_id = SingleAgentID()
-        self.proba_map = np.zeros((BINS_PER_DIMENSION, BINS_PER_DIMENSION))
-        self.observed__map = np.zeros((BINS_PER_DIMENSION, BINS_PER_DIMENSION))
+        self.proba_map = np.zeros((self.BINS_PER_DIMENSION, self.BINS_PER_DIMENSION))
+        self.observed__map = np.zeros((self.BINS_PER_DIMENSION, self.BINS_PER_DIMENSION))
 
     def update(self, agent_update):
         observation_map = agent_update.observation_map
-        observation = observation_map[self.agent_id]
-        self.position = (observation.get_value(self.component_names['x']), observation.get_value(self.component_names['y']))
+        observation = observation_map.observations[self.agent_id]
+        self.position = (observation.get_value(self.feature_names['x']), observation.get_value(self.feature_names['y']))
         action_map = ActionMap()
         action = Action()
         next_x, next_y = self.next_movement()
