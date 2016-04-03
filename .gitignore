@@ -5,7 +5,6 @@ actions.py
 agents.py
 mountain_car_mdp.py
 environments.py
-experiment.py
 example.py
 configs
 graphs
