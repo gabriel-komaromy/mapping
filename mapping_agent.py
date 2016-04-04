@@ -1,5 +1,6 @@
 import numpy as np
 import math
+import sys
 from random import Random
 from sets import Set
 
@@ -35,7 +36,9 @@ class MappingAgent(Agent):
         'y': ComponentName('y'),
         }
 
-    BINS_PER_DIMENSION = (30, 30)
+    BINS_PER_DIMENSION = (24, 24)
+
+    STARTING_LOG_ODDS_VALUE = 0.0
 
     def __init__(self, environment_spec):
         action_descriptors = environment_spec.action_descriptors
@@ -48,8 +51,10 @@ class MappingAgent(Agent):
             )
 
         self.agent_id = SingleAgentID()
-        self.proba_map = np.ones((self.BINS_PER_DIMENSION[0], self.BINS_PER_DIMENSION[1])) * 0.5
-        self.observed_map = np.zeros((self.BINS_PER_DIMENSION[0], self.BINS_PER_DIMENSION[1]))
+        x_bins = self.BINS_PER_DIMENSION[0]
+        y_bins = self.BINS_PER_DIMENSION[1]
+        self.log_map = np.zeros((x_bins, y_bins)) + self.STARTING_LOG_ODDS_VALUE
+        self.observed_map = np.zeros((x_bins, y_bins))
         self.rand = Random()
 
     def update(self, agent_update):
@@ -65,16 +70,16 @@ class MappingAgent(Agent):
             distance = observation.get_value(self.feature_names[direction]).feature_value
             observed_bases[basis] = distance
 
-        self.proba_map, self.observed_map = self.update_maps(
+        self.log_map, self.observed_map = self.update_maps(
             self.position,
-            self.proba_map,
+            self.log_map,
             self.observed_map,
             observed_bases,
             )
 
         action_map = ActionMap()
         action = Action()
-        next_x, next_y = self.next_movement(self.position, self.proba_map)
+        next_x, next_y = self.next_movement(self.position, self.log_map)
         x_component = NumericActionComponent(next_x)
         action.add_component(self.component_names['x'], x_component)
         y_component = NumericActionComponent(next_y)
@@ -82,20 +87,21 @@ class MappingAgent(Agent):
         action_map.add_action(self.agent_id, action)
         return action_map
 
-    def next_movement(self, position, proba_map):
+    def next_movement(self, position, log_map, attempts=0):
         candidate = (
             position[0] + self.rand.uniform(-0.2, 0.2),
             position[1] + self.rand.uniform(-0.2, 0.2),
             )
         disc_candidate = self.discretize_point(candidate)
-        if self.rand.uniform(0, 1) < proba_map[disc_candidate[0], disc_candidate[1]]:
+        log_odds = log_map[disc_candidate[0], disc_candidate[1]]
+        proba = self.proba_from_log_odds(log_odds)
+        if self.rand.uniform(0, 1) < proba or attempts > 100:
             return candidate
         else:
-            return self.next_movement(position, proba_map)
+            return self.next_movement(position, log_map, attempts + 1)
 
-    def update_maps(self, position, proba_map, observed_map, observed_bases):
+    def update_maps(self, position, log_map, observed_map, observed_bases):
         position_in_grid = self.discretize_point(position)
-
         for basis, distance in zip(observed_bases.keys(), observed_bases.values()):
             theta_from_horizontal = self.angle_between(basis, (1, 0))
             endpoint = (
@@ -104,8 +110,40 @@ class MappingAgent(Agent):
                 )
             endpoint_in_grid = self.discretize_point(endpoint)
             bins_crossed = self.bins_crossed(position_in_grid, endpoint_in_grid)
-        # TODO: finish this
-        return proba_map, observed_map
+
+            for bin_location in bins_crossed:
+                log_map, observed_map = self.update_bin(
+                    bin_location,
+                    log_map,
+                    observed_map,
+                    False,
+                    )
+            log_map, observed_map = self.update_bin(
+                endpoint_in_grid,
+                log_map,
+                observed_map,
+                True,
+                )
+        return log_map, observed_map
+
+    def update_bin(self, bin_location, log_map, observed_map, obstacle_encountered):
+        x = bin_location[0]
+        y = bin_location[1]
+
+        observed_map[x, y] = 1
+        log_map[x, y] = log_map[x, y] + self.inverse_sensor(
+            bin_location,
+            obstacle_encountered,
+            ) - self.STARTING_LOG_ODDS_VALUE
+        return log_map, observed_map
+        
+    def inverse_sensor(self, bin_location, obstacle_encountered):
+        if obstacle_encountered:
+            proba = 0.8
+        else:
+            proba = 0.2
+
+        return math.log(proba / (1 - proba))
 
     def bins_crossed(self, position_in_grid, endpoint_in_grid):
         """
@@ -115,28 +153,34 @@ class MappingAgent(Agent):
         bins_crossed = Set()
         if position_in_grid[0] == endpoint_in_grid[0]:
             # movement is in y direction
-            if position_in_grid[1] == endpoint_in_grid[1]:
-                pass
-            else:
-                for y_coord in xrange(
-                    min(position_in_grid[1], endpoint_in_grid[1]),
-                    max(position_in_grid[1], endpoint_in_grid[1]),
-                    ):
-                        bins_crossed.add((position_in_grid[0], y_coord))
+            for y_coord in self.get_range(
+                position_in_grid[1],
+                endpoint_in_grid[1],
+                ):
+                    bins_crossed.add((position_in_grid[0], y_coord))
         elif position_in_grid[1] == endpoint_in_grid[1]:
             # movement is in x direction
-            if position_in_grid[0] == endpoint_in_grid[0]:
-                pass
-            else:
-                for x_coord in xrange(
-                    min(position_in_grid[0], endpoint_in_grid[0]),
-                    max(position_in_grid[0], endpoint_in_grid[0]),
-                    ):
-                        bins_crossed.add((x_coord, position_in_grid[1]))
+            for x_coord in self.get_range(
+                position_in_grid[0],
+                endpoint_in_grid[0],
+                ):
+                    bins_crossed.add((x_coord, position_in_grid[1]))
 
         else:
             raise ValueError("Diagonal movement")
+
         return bins_crossed
+
+    def get_range(self, pos_coord, end_coord):
+        if pos_coord == end_coord:
+            return []
+        elif pos_coord < end_coord:
+            return xrange(pos_coord, end_coord)
+        else:
+            return xrange(end_coord + 1, pos_coord + 1)
+
+    def proba_from_log_odds(self, log_odds):
+        return 1 - (1/(1 + math.exp(log_odds)))
 
     def discretize_point(self, point):
         return (
@@ -154,3 +198,6 @@ class MappingAgent(Agent):
 
     def angle_between(self, vec1, vec2):
         return math.acos(np.dot(vec1, vec2) / (math.sqrt(vec1[0] ** 2 + vec1[1] ** 2) * math.sqrt(vec2[0] ** 2 + vec2[1] ** 2)))
+
+    def proba_map(self):
+        return np.array([map(self.proba_from_log_odds, row) for row in self.log_map])

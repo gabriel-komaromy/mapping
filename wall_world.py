@@ -104,6 +104,7 @@ class World(object):
         top_left = Point(1, dimensions[1] - 1)
         top_right = Point(dimensions[0] - 1, dimensions[1] - 1)
         bottom_right = Point(dimensions[0] - 1, 1)
+        self.left_wall = Wall((bottom_left, top_left))
         self.add_wall(Wall((bottom_left, top_left)))
         self.add_wall(Wall((top_left, top_right)))
         self.add_wall(Wall((top_right, bottom_right)))
@@ -159,31 +160,18 @@ class World(object):
         intersections = self.intersections(self.walls, trajectory)
         if len(intersections) == 0:
             new_location = destination
+
         else:
             # if the movement would run into a wall, end the movement a short distance away from the wall
             collision_distance = 0.1
             closest_intersection = self.closest_intersection(intersections)
-            try:
-                movement_direction = trajectory.slope()
-                correction = -1 * movement_direction
-                if correction == 0:
-                    # horizontal line so slope is 0
-                    direction = self.single_coordinate_direction(trajectory.endpoints[1].x, trajectory.endpoints[0].x)
-                    x_offset = collision_distance * direction
-
-                    y_offset = 0
-
-                else:
-                    x_offset = collision_distance / correction
-                    y_offset = collision_distance * correction
-            except:
-                # vertical line so slope is undefined
-                x_offset = 0
-
-                direction = self.single_coordinate_direction(trajectory.endpoints[1].y, trajectory.endpoints[0].y)
-                y_offset = collision_distance * direction
+            x_movement_diff = destination.x - self.robot_location.x
+            y_movement_diff = destination.y - self.robot_location.y
+            x_offset = -1 * collision_distance * x_movement_diff
+            y_offset = -1 * collision_distance * y_movement_diff
 
             new_location = Point(closest_intersection.x + x_offset, closest_intersection.y + y_offset)
+
         return new_location
 
     """Handles cases of horizontal/vertical movement collisions"""
@@ -206,9 +194,9 @@ class World(object):
         return intersections
 
     def distance_in_direction(self, direction):
-        traj = Trajectory((self.robot_location, Point(direction.x_component * self.dimensions[0] * 2, direction.y_component * self.dimensions[1] * 2)))
+        traj = Trajectory((self.robot_location, Point(self.robot_location.x + direction.x_component * self.dimensions[0] * 2, self.robot_location.y + direction.y_component * self.dimensions[1] * 2)))
         intersections = self.intersections(self.walls, traj)
-        assert len(intersections) > 0
+        assert len(intersections) > 0, str(traj)
 
         return self.robot_location.distance(self.closest_intersection(intersections))
 

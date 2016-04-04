@@ -1,3 +1,9 @@
+import math
+import sys
+import matplotlib as mp
+import matplotlib.pyplot as plt
+import matplotlib.cm as cm
+import numpy as np
 from messages import EpisodeTerminationSignal
 from messages import FreezeExploration
 from messages import FreezeLearning
@@ -5,7 +11,6 @@ from messages import AgentUpdate
 from messages import EnvironmentUpdate
 from environments import Environment
 from dill_io import save_dill
-from dill_io import load_dill
 
 
 class Experiment(object):
@@ -13,12 +18,11 @@ class Experiment(object):
         agent_class = import_from_strings(agent_class_name, agent_module_path)
         mdp_class = import_from_strings(mdp_class_name, mdp_module_path)
         dummy_environment = Environment(mdp_class((1, 1)))
-        spec = dummy_environment.spec()
-        self.agent = agent_class(spec)
+        self.spec = dummy_environment.spec()
+        self.agent_class = agent_class
         self.mdp_class = mdp_class
 
     def run_episodes(self, num_cycles, explore_per_cycle, exploit_per_cycle, steps_per_episode):
-        rewards_received = []
         with open('robot_start_positions.txt', 'r') as positions:
             positions_strings = positions.readlines()
         split_coordinates = [position.split(',') for position in positions_strings]
@@ -26,8 +30,11 @@ class Experiment(object):
         for position in split_coordinates:
             position_coordinates.append([float(coord.strip()) + 1 for coord in position])
         for start_location in position_coordinates:
-            episode = Episode(self.agent, self.mdp_class, FreezeExploration(False), FreezeLearning(False), start_location)
+            print start_location
+            agent = self.agent_class(self.spec)
+            episode = Episode(agent, self.mdp_class, FreezeExploration(False), FreezeLearning(False), start_location)
             episode.run(steps_per_episode)
+            self.plot_map(agent.proba_map().T, start_location)
         """
         for _ in xrange(num_cycles):
             for _ in xrange(explore_per_cycle):
@@ -47,6 +54,30 @@ class Experiment(object):
 
     def save_results(self, output_data, file_name):
         save_dill(output_data, file_name)
+
+    def plot_map(self, to_plot, start_location):
+        # to_plot[0, 0] = -10
+        fig, ax = plt.subplots()
+        ax.imshow(to_plot, cmap=cm.gray, interpolation='nearest')
+        numrows, numcols = to_plot.shape
+        def format_coord(x, y):
+            col = int(x)
+            row = int(y)
+            if col >= 0 and col < numcols and row >= 0 and row < numrows:
+                z = to_plot[row, col]
+                return 'x=%1.4f, y=%1.4f, z=%1.4f' % (x, y, z)
+            else:
+                return 'x=%1.4f, y=%1.4f' % (x, y)
+        ax.format_coord = format_coord
+        labels = map(lambda tick: str(int(tick + 0.5)), np.arange(-0.5, 23.5, 1.0))
+        plt.xticks(np.arange(-0.5, 23.5, 1.0), labels)
+        ax.set_yticks(np.arange(-0.5, 23.5, 1.0), labels)
+        ax.xaxis.grid(True)
+        # ax.set_xlim(-0.5, 23.5)
+        ax.yaxis.grid(True)
+        plt.gca().invert_yaxis()
+        plt.title(start_location)
+        plt.show()
 
 
 class Episode(object):
@@ -93,4 +124,4 @@ def import_from_strings(class_name, module_path):
 
 if __name__ == '__main__':
     experiment = Experiment('MappingAgent', 'mapping_agent', 'WallWorldMDP', 'wall_world_mdp')
-    experiment.run_episodes(10, 5, 5, 3)
+    experiment.run_episodes(10, 5, 5, 100)
