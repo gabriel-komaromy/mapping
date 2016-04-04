@@ -38,12 +38,9 @@ class Experiment(object):
             agent = self.agent_class(self.spec)
             episode = Episode(agent, self.mdp_class, FreezeExploration(False), FreezeLearning(False), start_location)
             episode.run(steps_per_episode)
-            """
             free_map = forget_map_context(agent.proba_map().T, agent.observed_map.T)
             maps.append(free_map)
-            print free_map.shape
-            """
-            self.plot_map(agent.proba_map().T, start_location)
+            # self.plot_map(agent.proba_map().T, start_location)
         """
         for _ in xrange(num_cycles):
             for _ in xrange(explore_per_cycle):
@@ -57,7 +54,7 @@ class Experiment(object):
         return rewards_received
         """
 
-        merged = merge_maps(maps)
+        merge_maps(maps)
 
     def save_policy(self, agent, file_name):
         policy = agent.policy()
