@@ -30,7 +30,7 @@ class Experiment(object):
         for position in split_coordinates:
             position_coordinates.append([float(coord.strip()) + 1 for coord in position])
         for start_location in position_coordinates:
-            print start_location
+            # print start_location
             agent = self.agent_class(self.spec)
             episode = Episode(agent, self.mdp_class, FreezeExploration(False), FreezeLearning(False), start_location)
             episode.run(steps_per_episode)
@@ -56,7 +56,6 @@ class Experiment(object):
         save_dill(output_data, file_name)
 
     def plot_map(self, to_plot, start_location):
-        # to_plot[0, 0] = -10
         fig, ax = plt.subplots()
         ax.imshow(to_plot, cmap=cm.gray, interpolation='nearest')
         numrows, numcols = to_plot.shape
@@ -69,11 +68,11 @@ class Experiment(object):
             else:
                 return 'x=%1.4f, y=%1.4f' % (x, y)
         ax.format_coord = format_coord
-        labels = map(lambda tick: str(int(tick + 0.5)), np.arange(-0.5, 23.5, 1.0))
-        plt.xticks(np.arange(-0.5, 23.5, 1.0), labels)
-        ax.set_yticks(np.arange(-0.5, 23.5, 1.0), labels)
+        tick_points = np.arange(-0.5, 49.5, 1.0)
+        labels = map(lambda tick: str(int(tick + 0.5)), tick_points)
+        plt.xticks(tick_points, labels)
+        plt.yticks(tick_points, labels)
         ax.xaxis.grid(True)
-        # ax.set_xlim(-0.5, 23.5)
         ax.yaxis.grid(True)
         plt.gca().invert_yaxis()
         plt.title(start_location)
@@ -124,4 +123,4 @@ def import_from_strings(class_name, module_path):
 
 if __name__ == '__main__':
     experiment = Experiment('MappingAgent', 'mapping_agent', 'WallWorldMDP', 'wall_world_mdp')
-    experiment.run_episodes(10, 5, 5, 100)
+    experiment.run_episodes(10, 5, 5, 1000)

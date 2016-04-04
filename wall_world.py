@@ -100,17 +100,26 @@ class World(object):
         self.add_robot(Point(robot_position[0], robot_position[1]))
         self.walls = Set()
         self.agent = SingleAgentID()
-        bottom_left = Point(1, 1)
-        top_left = Point(1, dimensions[1] - 1)
-        top_right = Point(dimensions[0] - 1, dimensions[1] - 1)
-        bottom_right = Point(dimensions[0] - 1, 1)
-        self.left_wall = Wall((bottom_left, top_left))
+        bottom_left = Point(0.9, 0.9)
+        top_left = Point(0.9, dimensions[1] - 0.9)
+        top_right = Point(dimensions[0] - 0.9, dimensions[1] - 0.9)
+        bottom_right = Point(dimensions[0] - 0.9, 0.9)
         self.add_wall(Wall((bottom_left, top_left)))
         self.add_wall(Wall((top_left, top_right)))
         self.add_wall(Wall((top_right, bottom_right)))
         self.add_wall(Wall((bottom_right, bottom_left)))
 
         self.read_walls_from_file('wall_list.txt')
+        """
+        traj = Trajectory((self.robot_location, Point(self.robot_location.x, self.robot_location.y - 1)))
+        print "intersections: "
+        intersections = Set()
+        for wall in self.walls:
+            if wall.intersects(traj):
+                intersections.add(wall)
+        for inter in intersections:
+            print inter
+            """
 
     def read_walls_from_file(self, file_name):
         with open(file_name, 'r') as f:

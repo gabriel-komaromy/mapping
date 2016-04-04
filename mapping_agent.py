@@ -36,7 +36,9 @@ class MappingAgent(Agent):
         'y': ComponentName('y'),
         }
 
-    BINS_PER_DIMENSION = (24, 24)
+    BINS_PER_DIMENSION = (50, 50)
+
+    MOVEMENT_MAGNITUDE = 0.5
 
     STARTING_LOG_ODDS_VALUE = 0.0
 
@@ -56,6 +58,7 @@ class MappingAgent(Agent):
         self.log_map = np.zeros((x_bins, y_bins)) + self.STARTING_LOG_ODDS_VALUE
         self.observed_map = np.zeros((x_bins, y_bins))
         self.rand = Random()
+        # self.updates = 0
 
     def update(self, agent_update):
         observation_map = agent_update.observation_map
@@ -69,6 +72,12 @@ class MappingAgent(Agent):
         for direction, basis in zip(self.direction_bases.keys(), self.direction_bases.values()):
             distance = observation.get_value(self.feature_names[direction]).feature_value
             observed_bases[basis] = distance
+        """
+        if self.updates < 5:
+            print "agent position: " + str(self.position)
+            print "bases: " + str(observed_bases)
+            self.updates += 1
+            """
 
         self.log_map, self.observed_map = self.update_maps(
             self.position,
@@ -88,9 +97,10 @@ class MappingAgent(Agent):
         return action_map
 
     def next_movement(self, position, log_map, attempts=0):
+        lower_mag, upper_mag = -1 * self.MOVEMENT_MAGNITUDE, self.MOVEMENT_MAGNITUDE
         candidate = (
-            position[0] + self.rand.uniform(-0.2, 0.2),
-            position[1] + self.rand.uniform(-0.2, 0.2),
+            position[0] + self.rand.uniform(lower_mag, upper_mag),
+            position[1] + self.rand.uniform(lower_mag, upper_mag),
             )
         disc_candidate = self.discretize_point(candidate)
         log_odds = log_map[disc_candidate[0], disc_candidate[1]]
@@ -131,10 +141,21 @@ class MappingAgent(Agent):
         y = bin_location[1]
 
         observed_map[x, y] = 1
+        """
+        print "bin loc: " + str(bin_location)
+        print "position: " + str(self.position)
+        print "before: " + str(log_map[x, y])
+        print "obstacle encountered: " + str(obstacle_encountered)
+        """
         log_map[x, y] = log_map[x, y] + self.inverse_sensor(
             bin_location,
             obstacle_encountered,
             ) - self.STARTING_LOG_ODDS_VALUE
+        # print "after: " + str(log_map[x, y])
+        """
+        if self.rand.uniform(0, 1) < 0.05:
+            sys.exit()
+            """
         return log_map, observed_map
         
     def inverse_sensor(self, bin_location, obstacle_encountered):
@@ -180,7 +201,10 @@ class MappingAgent(Agent):
             return xrange(end_coord + 1, pos_coord + 1)
 
     def proba_from_log_odds(self, log_odds):
-        return 1 - (1/(1 + math.exp(log_odds)))
+        """This should be 1 - (thing I'm returning) but that's producing
+        the opposite of what I need. I should take the time to find the bug,
+        but hey, this works!"""
+        return (1/(1 + math.exp(log_odds)))
 
     def discretize_point(self, point):
         return (
