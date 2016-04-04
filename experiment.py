@@ -38,10 +38,12 @@ class Experiment(object):
             agent = self.agent_class(self.spec)
             episode = Episode(agent, self.mdp_class, FreezeExploration(False), FreezeLearning(False), start_location)
             episode.run(steps_per_episode)
+            """
             free_map = forget_map_context(agent.proba_map().T, agent.observed_map.T)
             maps.append(free_map)
             print free_map.shape
-            # self.plot_map(agent.proba_map().T, start_location)
+            """
+            self.plot_map(agent.proba_map().T, start_location)
         """
         for _ in xrange(num_cycles):
             for _ in xrange(explore_per_cycle):
@@ -77,14 +79,14 @@ class Experiment(object):
             else:
                 return 'x=%1.4f, y=%1.4f' % (x, y)
         ax.format_coord = format_coord
-        tick_points = np.arange(-0.5, 49.5, 1.0)
+        tick_points = np.arange(-0.5, 49.5, 5.0)
         labels = map(lambda tick: str(int(tick + 0.5)), tick_points)
         plt.xticks(tick_points, labels)
         plt.yticks(tick_points, labels)
         ax.xaxis.grid(True)
         ax.yaxis.grid(True)
         plt.gca().invert_yaxis()
-        plt.title(start_location)
+        # plt.title(start_location)
         plt.show()
 
 
