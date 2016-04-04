@@ -4,6 +4,7 @@ import matplotlib as mp
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 import numpy as np
+
 from messages import EpisodeTerminationSignal
 from messages import FreezeExploration
 from messages import FreezeLearning
@@ -12,6 +13,8 @@ from messages import EnvironmentUpdate
 from environments import Environment
 from dill_io import save_dill
 
+from forget_map_context import forget_map_context
+from merge_maps import merge_maps
 
 class Experiment(object):
     def __init__(self, agent_class_name, agent_module_path, mdp_class_name, mdp_module_path):
@@ -23,6 +26,7 @@ class Experiment(object):
         self.mdp_class = mdp_class
 
     def run_episodes(self, num_cycles, explore_per_cycle, exploit_per_cycle, steps_per_episode):
+        maps = []
         with open('robot_start_positions.txt', 'r') as positions:
             positions_strings = positions.readlines()
         split_coordinates = [position.split(',') for position in positions_strings]
@@ -34,7 +38,10 @@ class Experiment(object):
             agent = self.agent_class(self.spec)
             episode = Episode(agent, self.mdp_class, FreezeExploration(False), FreezeLearning(False), start_location)
             episode.run(steps_per_episode)
-            self.plot_map(agent.proba_map().T, start_location)
+            free_map = forget_map_context(agent.proba_map().T, agent.observed_map.T)
+            maps.append(free_map)
+            print free_map.shape
+            # self.plot_map(agent.proba_map().T, start_location)
         """
         for _ in xrange(num_cycles):
             for _ in xrange(explore_per_cycle):
@@ -47,6 +54,8 @@ class Experiment(object):
         self.save_results(rewards_received, 'saved_results/mc_q_learning.dill')
         return rewards_received
         """
+
+        merged = merge_maps(maps)
 
     def save_policy(self, agent, file_name):
         policy = agent.policy()
