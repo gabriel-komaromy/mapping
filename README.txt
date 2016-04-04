@@ -1,0 +1,1 @@
+Simulation and mapping algorithm I wrote for a robotics class project. This code is terrible and we haven't published the underlying interface yet so nobody else will be able to run it, but it worked for my project.
